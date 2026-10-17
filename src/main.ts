@@ -1,9 +1,14 @@
 import "dotenv/config";
 import { fakerFA as faker } from "@faker-js/faker";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 const baleApiBaseUrl = "https://tapi.bale.ai";
 const pollIntervalSeconds = 30;
 const hogUserChatIds = [247763148, 1400586842];
+const imagePaths = [1, 2, 3, 4, 5].map((number) =>
+  fileURLToPath(new URL(`../assets/images/${number}.jpeg`, import.meta.url)),
+);
 function createHogMessage(): string {
   const sentenceCount = faker.number.int({ min: 1, max: 5 });
   const words = Array.from({ length: sentenceCount }, () =>
@@ -65,6 +70,34 @@ async function sendText(token: string, chatId: number, text: string): Promise<vo
   await callBale(token, "sendMessage", { chat_id: chatId, text });
 }
 
+async function sendImage(token: string, chatId: number, imagePath: string): Promise<void> {
+  const image = await readFile(imagePath);
+  const form = new FormData();
+  form.set("chat_id", String(chatId));
+  form.set("photo", new Blob([image], { type: "image/jpeg" }), imagePath.split(/[\\/]/).pop() ?? "image.jpeg");
+
+  const response = await fetch(`${baleApiBaseUrl}/bot${token}/sendPhoto`, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(40_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Bale API sendPhoto failed with HTTP ${response.status}`);
+  }
+  const payload = (await response.json()) as BaleApiResponse<unknown>;
+  if (!payload.ok) {
+    throw new Error(`Bale API sendPhoto failed: ${payload.description ?? "unknown error"}`);
+  }
+}
+
+function createHogSequence(): Array<{ type: "text"; text: string } | { type: "image"; path: string }> {
+  const sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }> = [
+    ...Array.from({ length: 20 }, () => ({ type: "text" as const, text: createHogMessage() })),
+    ...imagePaths.map((path) => ({ type: "image" as const, path })),
+  ];
+  return faker.helpers.shuffle(sequence);
+}
+
 function isHello(text: string): boolean {
   return /^hello[!.?]*$/i.test(text.trim());
 }
@@ -109,8 +142,12 @@ async function main(): Promise<void> {
         } else if (isHog(message.text) && message.from) {
           const recipients = hogUserChatIds.filter((chatId) => chatId !== message.from?.id);
           for (const recipientChatId of recipients) {
-            for (let count = 0; count < 20; count += 1) {
-              await sendText(token, recipientChatId, createHogMessage());
+            for (const item of createHogSequence()) {
+              if (item.type === "text") {
+                await sendText(token, recipientChatId, item.text);
+              } else {
+                await sendImage(token, recipientChatId, item.path);
+              }
             }
           }
           await sendText(token, message.chat.id, "پیام‌ها با موفقیت فرستاده شدن 😄");
