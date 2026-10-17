@@ -4,10 +4,10 @@ import { clearHogHistory, loadHogHistory, saveHogHistory } from "./database";
 import { editPhotoCaption, editText, sendHogSequence, type SentMessage } from "./sender";
 
 const imagePaths = [1, 2, 3, 4, 5].map((number) => resolve(process.cwd(), `assets/images/${number}.jpeg`));
-const textMessageCount = 70;
-const imageMessageCount = 30;
+const textMessageCount = 15;
+const imageMessageCount = 5;
 const messageConcurrencyPerGroup = 5;
-const previousMessageEditCountPerGroup = 20;
+const previousMessageEditCountPerGroup = 5;
 
 type HogItem = { type: "text"; text: string } | { type: "image"; path: string; caption: string };
 
