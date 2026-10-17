@@ -7,6 +7,7 @@ const imagePaths = [1, 2, 3, 4, 5].map((number) => resolve(process.cwd(), `asset
 const textMessageCount = 15;
 const imageMessageCount = 5;
 const messageConcurrencyPerGroup = 5;
+const recentMessageCandidateLimitPerGroup = 50;
 const previousMessageEditCountPerGroup = 5;
 
 type HogItem = { type: "text"; text: string } | { type: "image"; path: string; caption: string };
@@ -45,8 +46,9 @@ async function editPreviousMessages(token: string): Promise<void> {
   );
 
   for (const [chatId, messages] of previousByGroup) {
-    const toEdit = faker.helpers.shuffle(messages).slice(0, previousMessageEditCountPerGroup);
-    console.log(`Editing ${toEdit.length} randomly selected messages from the previous hog run in group ${chatId}.`);
+    const recentMessages = messages.slice(0, recentMessageCandidateLimitPerGroup);
+    const toEdit = faker.helpers.shuffle(recentMessages).slice(0, previousMessageEditCountPerGroup);
+    console.log(`Editing ${toEdit.length} randomly selected messages from the ${recentMessages.length} most recent candidates in group ${chatId}.`);
 
     for (const [index, previous] of toEdit.entries()) {
       try {
