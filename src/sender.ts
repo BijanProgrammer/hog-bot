@@ -47,6 +47,10 @@ export async function editText(token: string, chatId: number, messageId: number,
   await callBale(token, "editMessageText", { chat_id: chatId, message_id: messageId, text });
 }
 
+export async function editPhotoCaption(token: string, chatId: number, messageId: number, caption: string): Promise<void> {
+  await callBale(token, "editMessageCaption", { chat_id: chatId, message_id: messageId, caption });
+}
+
 export async function getUpdates(token: string, offset?: number): Promise<BaleUpdate[]> {
   const query = new URLSearchParams({ timeout: "30" });
   if (offset !== undefined) query.set("offset", String(offset));
@@ -56,11 +60,11 @@ export async function getUpdates(token: string, offset?: number): Promise<BaleUp
 import { readFile } from "node:fs/promises";
 
 
-export async function sendHogSequence(token: string, chatId: number, sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }>, onSent?: (index: number, total: number, type: "text" | "image") => void): Promise<void> {
+export async function sendHogSequence(token: string, chatId: number, sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }>, onSent?: (index: number, total: number, type: "text" | "image", sentMessage: SentMessage) => void | Promise<void>): Promise<void> {
   for (const [index, item] of sequence.entries()) {
     if (item.type === "text") {
-      await sendText(token, chatId, item.text);
-      onSent?.(index + 1, sequence.length, item.type);
+      const sentMessage = await sendText(token, chatId, item.text);
+      await onSent?.(index + 1, sequence.length, item.type, sentMessage);
       continue;
     }
     const image = await readFile(item.path);
@@ -70,7 +74,7 @@ export async function sendHogSequence(token: string, chatId: number, sequence: A
     const response = await fetch(`${baleApiBaseUrl}/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(40_000) });
     if (!response.ok) throw new Error(`Bale API sendPhoto failed with HTTP ${response.status}`);
     const payload = (await response.json()) as BaleApiResponse<unknown>;
-    if (!payload.ok) throw new Error(`Bale API sendPhoto failed: ${payload.description ?? "unknown error"}`);
-    onSent?.(index + 1, sequence.length, item.type);
+    if (!payload.ok || !payload.result) throw new Error(`Bale API sendPhoto failed: ${payload.description ?? "unknown error"}`);
+    await onSent?.(index + 1, sequence.length, item.type, payload.result as SentMessage);
   }
 }

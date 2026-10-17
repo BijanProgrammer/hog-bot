@@ -17,7 +17,7 @@ HogBot is a minimal Bale bot that replies `Hello!` when a user sends `hello`.
    npm start
    ```
 
-The app loads `.env` with `dotenv` at startup. `.env` is ignored by Git. Send `/hog` to the bot in a personal chat and it sends the hog sequence to these configured group chats: `4865424919`, `5333489797`, `4580430571`, `4934503252`, and `4862147712`. The bot must be a member of each group and allowed to send messages there.
+The app loads `.env` with `dotenv` at startup. `.env` is ignored by Git. Send `/hog` to the bot in a personal chat and it sends the hog sequence to these configured group chats: `4865424919`, `5333489797`, `4580430571`, `4934503252`, and `4862147712`. On each run, it also randomly edits up to 20% of the text messages from the previous `/hog` run. Message IDs are stored in the ignored local SQLite database `hog-history.sqlite`. The bot must be a member of each group and allowed to send messages there.
 
 The bot uses long polling, so it can run on a machine that does not have a public webhook URL. Keep the process running to receive messages. It responds to `hello` (case-insensitive, with optional trailing punctuation) and ignores other text.
 
