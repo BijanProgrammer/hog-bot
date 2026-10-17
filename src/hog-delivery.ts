@@ -1,30 +1,35 @@
 import { fakerFA as faker } from "@faker-js/faker";
 import { resolve } from "node:path";
 import { clearHogHistory, loadHogHistory, saveHogHistory } from "./database";
-import { editText, sendHogSequence, type SentMessage } from "./sender";
+import { editPhotoCaption, editText, sendHogSequence, type SentMessage } from "./sender";
 
 const imagePaths = [1, 2, 3, 4, 5].map((number) => resolve(process.cwd(), `assets/images/${number}.jpeg`));
-const textMessageCount = 50;
-const imageMessageCount = 10;
+const textMessageCount = 70;
+const imageMessageCount = 30;
 const messageConcurrencyPerGroup = 5;
+const previousMessageEditCountPerGroup = 20;
 
-type HogItem = { type: "text"; text: string } | { type: "image"; path: string };
+type HogItem = { type: "text"; text: string } | { type: "image"; path: string; caption: string };
 
 export interface HogDeliveryResult {
   sentCount: number;
   failedGroups: Array<{ chatId: number; reason: string }>;
 }
 
-function createHogMessage(): string {
-  const sentenceCount = faker.number.int({ min: 1, max: 5 });
-  const words = Array.from({ length: sentenceCount }, () => faker.lorem.words({ min: 4, max: 12 }));
+function createHogText(sentenceCount: { min: number; max: number }): string {
+  const count = faker.number.int(sentenceCount);
+  const words = Array.from({ length: count }, () => faker.lorem.words({ min: 4, max: 12 }));
   return `${words.map((sentence) => `${sentence[0].toUpperCase()}${sentence.slice(1)}`).join(". ")}! 🐗`;
 }
 
 function createHogSequence(): HogItem[] {
   const sequence: HogItem[] = [
-    ...Array.from({ length: textMessageCount }, () => ({ type: "text" as const, text: createHogMessage() })),
-    ...Array.from({ length: imageMessageCount }, () => ({ type: "image" as const, path: faker.helpers.arrayElement(imagePaths) })),
+    ...Array.from({ length: textMessageCount }, () => ({ type: "text" as const, text: createHogText({ min: 2, max: 5 }) })),
+    ...Array.from({ length: imageMessageCount }, () => ({
+      type: "image" as const,
+      path: faker.helpers.arrayElement(imagePaths),
+      caption: createHogText({ min: 1, max: 5 }),
+    })),
   ];
   return faker.helpers.shuffle(sequence);
 }
@@ -34,20 +39,29 @@ function errorMessage(error: unknown): string {
 }
 
 async function editPreviousMessages(token: string): Promise<void> {
-  const previousMessages = loadHogHistory().filter((item) => item.type === "text");
-  const editCount = Math.min(
-    previousMessages.length,
-    faker.number.int({ min: 1, max: Math.max(1, Math.ceil(previousMessages.length * 0.2)) }),
+  const previousByGroup = Map.groupBy(
+    loadHogHistory(),
+    (item) => item.chatId,
   );
-  const toEdit = faker.helpers.shuffle(previousMessages).slice(0, editCount);
-  console.log(`Editing ${toEdit.length} randomly selected text messages from the previous hog command.`);
 
-  for (const [index, previous] of toEdit.entries()) {
-    try {
-      await editText(token, previous.chatId, previous.messageId, `${createHogMessage()} (ویرایش شد)`);
-      console.log(`Edited previous hog text ${index + 1}/${toEdit.length} in group ${previous.chatId}.`);
-    } catch (error) {
-      console.log(`Could not edit previous hog text ${index + 1}/${toEdit.length} in group ${previous.chatId}:`, error);
+  for (const [chatId, messages] of previousByGroup) {
+    const toEdit = faker.helpers.shuffle(messages).slice(0, previousMessageEditCountPerGroup);
+    console.log(`Editing ${toEdit.length} randomly selected messages from the previous hog run in group ${chatId}.`);
+
+    for (const [index, previous] of toEdit.entries()) {
+      try {
+        const replacement = previous.type === "text"
+          ? createHogText({ min: 2, max: 5 })
+          : createHogText({ min: 1, max: 5 });
+        if (previous.type === "text") {
+          await editText(token, previous.chatId, previous.messageId, `${replacement} (ویرایش شد)`);
+        } else {
+          await editPhotoCaption(token, previous.chatId, previous.messageId, `${replacement} (ویرایش شد)`);
+        }
+        console.log(`Edited previous hog message ${index + 1}/${toEdit.length} in group ${previous.chatId}.`);
+      } catch (error) {
+        console.log(`Could not edit previous hog message ${index + 1}/${toEdit.length} in group ${previous.chatId}:`, error);
+      }
     }
   }
 }

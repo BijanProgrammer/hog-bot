@@ -62,7 +62,7 @@ export async function getUpdates(token: string, offset?: number): Promise<BaleUp
 export async function sendHogSequence(
   token: string,
   chatId: number,
-  sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }>,
+  sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string; caption: string }>,
   onSent?: (index: number, total: number, type: "text" | "image", sentMessage: SentMessage) => void | Promise<void>,
   concurrency = 1,
 ): Promise<void> {
@@ -80,7 +80,7 @@ export async function sendHogSequence(
       try {
         const sentMessage = item.type === "text"
           ? await sendText(token, chatId, item.text)
-          : await sendPhoto(token, chatId, item.path);
+          : await sendPhoto(token, chatId, item.path, item.caption);
         await onSent?.(index + 1, sequence.length, item.type, sentMessage);
       } catch (error) {
         if (!stopped) firstError = error;
@@ -93,11 +93,12 @@ export async function sendHogSequence(
   if (stopped) throw firstError;
 }
 
-async function sendPhoto(token: string, chatId: number, path: string): Promise<SentMessage> {
+async function sendPhoto(token: string, chatId: number, path: string, caption: string): Promise<SentMessage> {
   const image = await readFile(path);
   const form = new FormData();
   form.set("chat_id", String(chatId));
   form.set("photo", new Blob([image], { type: "image/jpeg" }), path.split(/[\\/]/).pop() ?? "image.jpeg");
+  form.set("caption", caption);
   const response = await fetch(`${baleApiBaseUrl}/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(40_000) });
   if (!response.ok) throw new Error(`Bale API sendPhoto failed with HTTP ${response.status}`);
   const payload = (await response.json()) as BaleApiResponse<SentMessage>;
