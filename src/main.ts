@@ -1,9 +1,16 @@
 import "dotenv/config";
+import { fakerFA as faker } from "@faker-js/faker";
 
 const baleApiBaseUrl = "https://tapi.bale.ai";
 const pollIntervalSeconds = 30;
 const hogUserChatIds = [247763148, 1400586842];
-const hogMessage = "هاگ! 🐗";
+function createHogMessage(): string {
+  const sentenceCount = faker.number.int({ min: 1, max: 5 });
+  const words = Array.from({ length: sentenceCount }, () =>
+    faker.lorem.words({ min: 4, max: 12 }),
+  );
+  return `${words.map((sentence) => `${sentence[0].toUpperCase()}${sentence.slice(1)}`).join(". ")}! 🐗`;
+}
 
 interface BaleUser {
   id: number;
@@ -98,15 +105,15 @@ async function main(): Promise<void> {
         if (isWhoAmI(message.text) && message.from) {
           await sendText(token, message.chat.id, `اینم اطلاعاتت 😄\nشناسه کاربریت: ${message.from.id}\nشناسه گفتگوت: ${message.chat.id}${message.from.username ? `\nآیدی‌ت: @${message.from.username}` : ""}${message.from.first_name ? `\nاسمت: ${message.from.first_name}` : ""}`);
         } else if (isStart(message.text)) {
-          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog سه تا پیام «هاگ!» واسه اون یکی کاربر می‌فرستم 😄");
+          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog بیست تا پیام «هاگ!» واسه اون یکی کاربر می‌فرستم 😄");
         } else if (isHog(message.text) && message.from) {
           const recipients = hogUserChatIds.filter((chatId) => chatId !== message.from?.id);
           for (const recipientChatId of recipients) {
-            for (let count = 0; count < 3; count += 1) {
-              await sendText(token, recipientChatId, hogMessage);
+            for (let count = 0; count < 20; count += 1) {
+              await sendText(token, recipientChatId, createHogMessage());
             }
           }
-          await sendText(token, message.chat.id, "سه تا پیام هاگ فرستادم براش 😄");
+          await sendText(token, message.chat.id, "پیام‌ها با موفقیت فرستاده شدن 😄");
         } else if (isHello(message.text)) {
           await sendText(token, message.chat.id, "سلام! 😄");
         }
