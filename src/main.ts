@@ -24,7 +24,7 @@ async function main(): Promise<void> {
         if (isCommand(message.text, "whoami") && message.from) {
           await sendText(token, message.chat.id, `اینم اطلاعاتت 😄\nشناسه کاربریت: ${message.from.id}\nشناسه گفتگوت: ${message.chat.id}${message.from.username ? `\nآیدی‌ت: @${message.from.username}` : ""}${message.from.first_name ? `\nاسمت: ${message.from.first_name}` : ""}`);
         } else if (isCommand(message.text, "start")) {
-          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog بیست پیام (پانزده متن و پنج عکس با کپشن) به همه گروه‌هایی که عضو آن‌ها هستم می‌فرستم و از هر گروه پنج پیام قبلی رو ویرایش می‌کنم 😄");
+          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog هفت پیام متنی و سه عکس با کپشن به همه گروه‌هایی که عضو آن‌ها هستم می‌فرستم و از هر گروه پنج پیام قبلی رو ویرایش می‌کنم 😄");
         } else if (isCommand(message.text, "hog") && message.from && message.chat.type === "private") {
           console.log(`/hog requested by user ${message.from.id} in chat ${message.chat.id}; starting delivery to ${hogGroupChatIds.length} groups.`);
           const statusMessage = await sendText(token, message.chat.id, "دارم پیام‌ها رو به گروه‌ها می‌فرستم؛ لطفاً منتظر بمونید… ⏳");

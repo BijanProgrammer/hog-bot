@@ -4,8 +4,8 @@ import { clearHogHistory, loadHogHistory, saveHogHistory } from "./database";
 import { editPhotoCaption, editText, sendHogSequence, type SentMessage } from "./sender";
 
 const imagePaths = [1, 2, 3, 4, 5].map((number) => resolve(process.cwd(), `assets/images/${number}.jpeg`));
-const textMessageCount = 15;
-const imageMessageCount = 5;
+const textMessageCount = 7;
+const imageMessageCount = 3;
 const messageConcurrencyPerGroup = 5;
 const recentMessageCandidateLimitPerGroup = 50;
 const previousMessageEditCountPerGroup = 5;
