@@ -1,5 +1,5 @@
 {
-  "name": "boilerno",
+  "name": "hog-bot",
   "version": "2.0.0",
   "scripts": {
     "dev": "tsx watch src/main.ts",
