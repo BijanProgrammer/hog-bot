@@ -3,7 +3,7 @@ import "dotenv/config";
 const baleApiBaseUrl = "https://tapi.bale.ai";
 const pollIntervalSeconds = 30;
 const hogUserChatIds = [247763148, 1400586842];
-const hogMessage = "Hog!";
+const hogMessage = "هاگ! 🐗";
 
 interface BaleUser {
   id: number;
@@ -66,15 +66,12 @@ function isWhoAmI(text: string): boolean {
   return /^\/whoami(?:@\w+)?(?:\s|$)/i.test(text.trim());
 }
 
-function isHog(text: string): boolean {
-  return /^\/hog(?:@\w+)?(?:\s|$)/i.test(text.trim());
+function isStart(text: string): boolean {
+  return /^\/start(?:@\w+)?(?:\s|$)/i.test(text.trim());
 }
 
-function formatWhoAmI(user: BaleUser, chat: BaleChat): string {
-  const details = [`Your user ID: ${user.id}`, `This chat ID: ${chat.id}`];
-  if (user.username) details.push(`Username: @${user.username}`);
-  if (user.first_name) details.push(`Name: ${user.first_name}`);
-  return details.join("\n");
+function isHog(text: string): boolean {
+  return /^\/hog(?:@\w+)?(?:\s|$)/i.test(text.trim());
 }
 
 async function main(): Promise<void> {
@@ -99,7 +96,9 @@ async function main(): Promise<void> {
         if (!message?.text || message.from?.is_bot) continue;
 
         if (isWhoAmI(message.text) && message.from) {
-          await sendText(token, message.chat.id, formatWhoAmI(message.from, message.chat));
+          await sendText(token, message.chat.id, `اینم اطلاعاتت 😄\nشناسه کاربریت: ${message.from.id}\nشناسه گفتگوت: ${message.chat.id}${message.from.username ? `\nآیدی‌ت: @${message.from.username}` : ""}${message.from.first_name ? `\nاسمت: ${message.from.first_name}` : ""}`);
+        } else if (isStart(message.text)) {
+          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog سه تا پیام «هاگ!» واسه اون یکی کاربر می‌فرستم 😄");
         } else if (isHog(message.text) && message.from) {
           const recipients = hogUserChatIds.filter((chatId) => chatId !== message.from?.id);
           for (const recipientChatId of recipients) {
@@ -107,9 +106,9 @@ async function main(): Promise<void> {
               await sendText(token, recipientChatId, hogMessage);
             }
           }
-          await sendText(token, message.chat.id, "Sent 3 messages successfully.");
+          await sendText(token, message.chat.id, "سه تا پیام هاگ فرستادم براش 😄");
         } else if (isHello(message.text)) {
-          await sendText(token, message.chat.id, "Hello!");
+          await sendText(token, message.chat.id, "سلام! 😄");
         }
       }
     } catch (error) {
