@@ -1,13 +1,13 @@
 import "dotenv/config";
 import { fakerFA as faker } from "@faker-js/faker";
 import { resolve } from "node:path";
+import { clearHogHistory, loadHogHistory, saveHogHistory } from "./database";
 import { editText, getUpdates, sendText, validateBot, sendHogSequence } from "./sender";
 
 const hogGroupChatIds = [4865424919, 5333489797, 4580430571, 4934503252, 4862147712];
 const imagePaths = [1, 2, 3, 4, 5].map((number) => resolve(process.cwd(), `assets/images/${number}.jpeg`));
 const textMessageCount = 50;
 const imageMessageCount = 10;
-
 function createHogMessage(): string {
   const sentenceCount = faker.number.int({ min: 1, max: 5 });
   const words = Array.from({ length: sentenceCount }, () => faker.lorem.words({ min: 4, max: 12 }));
@@ -48,11 +48,27 @@ async function main(): Promise<void> {
           const statusMessage = await sendText(token, message.chat.id, "دارم پیام‌ها رو به گروه‌ها می‌فرستم؛ لطفاً منتظر بمونید… ⏳");
           let sentCount = 0;
           try {
+            const history = loadHogHistory();
+            const previousMessages = history.filter((item) => item.type === "text");
+            const editCount = Math.min(previousMessages.length, faker.number.int({ min: 1, max: Math.max(1, Math.ceil(previousMessages.length * 0.2)) }));
+            const toEdit = faker.helpers.shuffle(previousMessages).slice(0, editCount);
+            console.log(`Editing ${toEdit.length} randomly selected text messages from the previous hog command.`);
+            for (const [index, previous] of toEdit.entries()) {
+              try {
+                await editText(token, previous.chatId, previous.messageId, `${createHogMessage()} (ویرایش شد)`);
+                console.log(`Edited previous hog text ${index + 1}/${toEdit.length} in group ${previous.chatId}.`);
+              } catch (error) {
+                console.log(`Could not edit previous hog text ${index + 1}/${toEdit.length} in group ${previous.chatId}:`, error);
+              }
+            }
+
             const sequence = createHogSequence();
+            clearHogHistory();
             for (const [groupIndex, groupChatId] of hogGroupChatIds.entries()) {
               console.log(`Starting hog delivery to group ${groupChatId} (${groupIndex + 1}/${hogGroupChatIds.length}).`);
-              await sendHogSequence(token, groupChatId, sequence, (messageIndex, total, type) => {
+              await sendHogSequence(token, groupChatId, sequence, (messageIndex, total, type, sentMessage) => {
                 sentCount += 1;
+                saveHogHistory({ chatId: groupChatId, messageId: sentMessage.message_id, type });
                 console.log(`Sent ${type} ${messageIndex}/${total} to group ${groupChatId} (${groupIndex + 1}/${hogGroupChatIds.length}); total sent: ${sentCount}/${hogGroupChatIds.length * total}.`);
               });
               console.log(`Finished hog delivery to group ${groupChatId}.`);
