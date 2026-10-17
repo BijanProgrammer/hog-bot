@@ -1,14 +1,16 @@
 import "dotenv/config";
 import { fakerFA as faker } from "@faker-js/faker";
+import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 
 const baleApiBaseUrl = "https://tapi.bale.ai";
 const pollIntervalSeconds = 30;
 const hogUserChatIds = [247763148, 1400586842];
 const imagePaths = [1, 2, 3, 4, 5].map((number) =>
-  fileURLToPath(new URL(`../assets/images/${number}.jpeg`, import.meta.url)),
+  resolve(process.cwd(), `assets/images/${number}.jpeg`),
 );
+const textMessageCount = 50;
+const imageMessageCount = 10;
 function createHogMessage(): string {
   const sentenceCount = faker.number.int({ min: 1, max: 5 });
   const words = Array.from({ length: sentenceCount }, () =>
@@ -92,8 +94,11 @@ async function sendImage(token: string, chatId: number, imagePath: string): Prom
 
 function createHogSequence(): Array<{ type: "text"; text: string } | { type: "image"; path: string }> {
   const sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }> = [
-    ...Array.from({ length: 20 }, () => ({ type: "text" as const, text: createHogMessage() })),
-    ...imagePaths.map((path) => ({ type: "image" as const, path })),
+    ...Array.from({ length: textMessageCount }, () => ({ type: "text" as const, text: createHogMessage() })),
+    ...Array.from({ length: imageMessageCount }, () => ({
+      type: "image" as const,
+      path: faker.helpers.arrayElement(imagePaths),
+    })),
   ];
   return faker.helpers.shuffle(sequence);
 }
@@ -138,7 +143,7 @@ async function main(): Promise<void> {
         if (isWhoAmI(message.text) && message.from) {
           await sendText(token, message.chat.id, `اینم اطلاعاتت 😄\nشناسه کاربریت: ${message.from.id}\nشناسه گفتگوت: ${message.chat.id}${message.from.username ? `\nآیدی‌ت: @${message.from.username}` : ""}${message.from.first_name ? `\nاسمت: ${message.from.first_name}` : ""}`);
         } else if (isStart(message.text)) {
-          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog بیست تا پیام «هاگ!» واسه اون یکی کاربر می‌فرستم 😄");
+          await sendText(token, message.chat.id, "سلام رفیق! 👋\nمن ربات هاگم 🐗 با دستور /hog پنجاه تا پیام و ده تا عکس واسه اون یکی کاربر می‌فرستم 😄");
         } else if (isHog(message.text) && message.from) {
           const recipients = hogUserChatIds.filter((chatId) => chatId !== message.from?.id);
           for (const recipientChatId of recipients) {
