@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 const baleApiBaseUrl = "https://tapi.bale.ai";
 
 export interface BaleUser {
@@ -57,24 +59,48 @@ export async function getUpdates(token: string, offset?: number): Promise<BaleUp
   return callBale(token, `getUpdates?${query.toString()}`);
 }
 
-import { readFile } from "node:fs/promises";
+export async function sendHogSequence(
+  token: string,
+  chatId: number,
+  sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }>,
+  onSent?: (index: number, total: number, type: "text" | "image", sentMessage: SentMessage) => void | Promise<void>,
+  concurrency = 1,
+): Promise<void> {
+  let nextIndex = 0;
+  let stopped = false;
+  let firstError: unknown;
 
+  async function sendNext(): Promise<void> {
+    while (!stopped) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const item = sequence[index];
+      if (!item) return;
 
-export async function sendHogSequence(token: string, chatId: number, sequence: Array<{ type: "text"; text: string } | { type: "image"; path: string }>, onSent?: (index: number, total: number, type: "text" | "image", sentMessage: SentMessage) => void | Promise<void>): Promise<void> {
-  for (const [index, item] of sequence.entries()) {
-    if (item.type === "text") {
-      const sentMessage = await sendText(token, chatId, item.text);
-      await onSent?.(index + 1, sequence.length, item.type, sentMessage);
-      continue;
+      try {
+        const sentMessage = item.type === "text"
+          ? await sendText(token, chatId, item.text)
+          : await sendPhoto(token, chatId, item.path);
+        await onSent?.(index + 1, sequence.length, item.type, sentMessage);
+      } catch (error) {
+        if (!stopped) firstError = error;
+        stopped = true;
+      }
     }
-    const image = await readFile(item.path);
-    const form = new FormData();
-    form.set("chat_id", String(chatId));
-    form.set("photo", new Blob([image], { type: "image/jpeg" }), item.path.split(/[\\/]/).pop() ?? "image.jpeg");
-    const response = await fetch(`${baleApiBaseUrl}/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(40_000) });
-    if (!response.ok) throw new Error(`Bale API sendPhoto failed with HTTP ${response.status}`);
-    const payload = (await response.json()) as BaleApiResponse<unknown>;
-    if (!payload.ok || !payload.result) throw new Error(`Bale API sendPhoto failed: ${payload.description ?? "unknown error"}`);
-    await onSent?.(index + 1, sequence.length, item.type, payload.result as SentMessage);
   }
+
+  await Promise.all(Array.from({ length: Math.max(1, Math.floor(concurrency)) }, () => sendNext()));
+  if (stopped) throw firstError;
+}
+
+async function sendPhoto(token: string, chatId: number, path: string): Promise<SentMessage> {
+  const image = await readFile(path);
+  const form = new FormData();
+  form.set("chat_id", String(chatId));
+  form.set("photo", new Blob([image], { type: "image/jpeg" }), path.split(/[\\/]/).pop() ?? "image.jpeg");
+  const response = await fetch(`${baleApiBaseUrl}/bot${token}/sendPhoto`, { method: "POST", body: form, signal: AbortSignal.timeout(40_000) });
+  if (!response.ok) throw new Error(`Bale API sendPhoto failed with HTTP ${response.status}`);
+  const payload = (await response.json()) as BaleApiResponse<SentMessage>;
+  if (!payload.ok || !payload.result) throw new Error(`Bale API sendPhoto failed: ${payload.description ?? "unknown error"}`);
+  return payload.result;
 }
