@@ -85,9 +85,13 @@ async function deliverToGroup(
 }
 
 export async function deliverHogMessages(token: string, groupChatIds: number[]): Promise<HogDeliveryResult> {
+  console.log(`[hog] Preparing delivery run for ${groupChatIds.length} groups.`);
+  const editStartedAt = Date.now();
   await editPreviousMessages(token);
+  console.log(`[hog] Previous-message edits finished in ${Date.now() - editStartedAt} ms.`);
 
   const sequence = createHogSequence();
+  console.log(`[hog] Generated ${sequence.length} outgoing messages (${sequence.filter((item) => item.type === "text").length} text, ${sequence.filter((item) => item.type === "image").length} image).`);
   clearHogHistory();
   let sentCount = 0;
   const failedGroups: HogDeliveryResult["failedGroups"] = [];
@@ -101,9 +105,10 @@ export async function deliverHogMessages(token: string, groupChatIds: number[]):
     } catch (error) {
       const reason = errorMessage(error);
       failedGroups.push({ chatId, reason });
-      console.error(`Hog delivery to group ${chatId} failed: ${reason}`);
+      console.error(`Hog delivery to group ${chatId} failed: ${reason}`, error);
     }
   }));
 
+  console.log(`[hog] Delivery run finished: ${sentCount} messages sent; ${failedGroups.length}/${groupChatIds.length} groups failed.`);
   return { sentCount, failedGroups };
 }

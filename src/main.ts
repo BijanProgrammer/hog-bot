@@ -38,11 +38,11 @@ async function main(): Promise<void> {
             await editText(token, message.chat.id, statusMessage.message_id, summary);
           } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
-            console.log(`Hog delivery could not start: ${reason}`);
+            console.error(`Hog delivery could not start for request by user ${message.from.id} in chat ${message.chat.id}: ${reason}`, error);
             try {
               await editText(token, message.chat.id, statusMessage.message_id, `ارسال کامل نشد. لطفاً لاگ کنسول رو بررسی کنید. خطا: ${reason}`);
             } catch (editError) {
-              console.log("Could not update the hog status message:", editError);
+              console.error("Could not update the hog status message:", editError);
             }
           }
         } else if (/^hello[!.?]*$/i.test(message.text.trim())) {
