@@ -1,6 +1,18 @@
 import { readFile } from "node:fs/promises";
 
 const baleApiBaseUrl = "https://tapi.bale.ai";
+const messageRetryCount = 3;
+
+async function retryMessageSend<T>(send: () => Promise<T>, description: string): Promise<T> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await send();
+    } catch (error) {
+      if (attempt > messageRetryCount) throw error;
+      console.warn(`[hog-send] ${description} failed (attempt ${attempt}/${messageRetryCount + 1}); retrying: ${describeError(error)}`);
+    }
+  }
+}
 
 export interface BaleUser {
   id: number;
@@ -110,9 +122,12 @@ export async function sendHogSequence(
       const startedAt = Date.now();
       console.log(`[hog-send] Starting ${item.type} ${index + 1}/${sequence.length} for group ${chatId}.`);
       try {
-        const sentMessage = item.type === "text"
-          ? await sendText(token, chatId, item.text)
-          : await sendPhoto(token, chatId, item.path, item.caption);
+        const sentMessage = await retryMessageSend(
+          () => item.type === "text"
+            ? sendText(token, chatId, item.text)
+            : sendPhoto(token, chatId, item.path, item.caption),
+          `${item.type} ${index + 1}/${sequence.length} for group ${chatId}`,
+        );
         await onSent?.(index + 1, sequence.length, item.type, sentMessage);
         console.log(`[hog-send] Sent ${item.type} ${index + 1}/${sequence.length} to group ${chatId} (message ${sentMessage.message_id}, ${Date.now() - startedAt} ms).`);
       } catch (error) {
